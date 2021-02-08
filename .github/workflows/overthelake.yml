@@ -1,0 +1,28 @@
+name: overthelake
+on:
+  workflow_dispatch:
+    inputs:
+      userId:
+        required: true
+      transferId:
+        required: true
+      args:
+        required: true
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    steps:
+      - id: configure
+        env:
+          RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
+        run: echo "$RCLONE_CONF" > rclone.conf
+      - id: rclone
+        uses: docker://rclone/rclone:latest
+        with:
+          args: ${{ github.event.inputs.args }}
+        continue-on-error: true
+      - id: webhook
+        env:
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+        run: >
+          curl -H "Content-Type: application/json" -H "Authorization: Bearer $WEBHOOK_SECRET" -d '{"userId": "${{ github.event.inputs.userId }}", "transferId": "${{ github.event.inputs.transferId }}", "outcome": "${{ steps.rclone.outcome }}", "runId": ${{ github.run_id }}}' https://app.overlake.io/api/webhook/gitHub
